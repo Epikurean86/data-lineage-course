@@ -1,0 +1,8 @@
+# Source papers are copyrighted; keep them out of the public repository
+Source Material/
+
+# Capstone outputs
+*.db
+*.db.wal
+__pycache__/
+.venv/

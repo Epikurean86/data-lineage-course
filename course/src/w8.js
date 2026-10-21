@@ -1,0 +1,84 @@
+W.push({
+id: "w8", num: 8,
+title: "Capstone: a pipeline with full lineage",
+focus: "Put everything together: build a small pipeline, capture its lineage at run, column and row level, then use it to answer provenance, impact and root-cause questions.",
+goal: "By the end of the week you have a working pipeline that emits OpenLineage events to Marquez, carries row-level how-provenance, and a one-page write-up explaining what each kind of lineage told you.",
+plan: [
+  ["Cumulative pre-test (from memory, all weeks)", 15],
+  ["Milestones 1–2: run the pipeline, answer provenance questions", 70],
+  ["Milestone 3: add column lineage", 50],
+  ["Milestones 4–5: impact and root-cause exercises", 60],
+  ["Milestone 6: one-page write-up", 45],
+  ["Final cumulative quiz and flashcard reviews", 60]
+],
+reading: [
+  { what: "No new reading", where: "Review your notes from weeks 2–6", mins: 0, note: "Use the Review tab daily this week: the deck now contains every card from the course." },
+  { what: "Optional: Glavic, “Data Provenance: Origins, Applications, Algorithms, and Models” (2021)", where: "Free author PDF, chapters on capture and storage", mins: 0, note: "If the capstone made you curious about how real provenance systems store and query annotations.", url: "https://www.cs.uic.edu/~bglavic/dbgroup/assets/pdfpubls/G21.pdf" },
+  { what: "Optional: ProvSQL", where: "pgxn.org/dist/provsql", mins: 0, note: "Repeat milestone 2 in PostgreSQL with real semiring provenance instead of strings.", url: "https://pgxn.org/dist/provsql/" }
+],
+pretest: [
+  "Without notes: draw the relationship between lineage, why-, how- and where-provenance.",
+  "Without notes: write the skeleton of an OpenLineage RunEvent.",
+  "Without notes: list three ways to capture lineage and when each fails."
+],
+notes: `
+<h3>The project</h3>
+<p>You will build a three-step pipeline in DuckDB and Python: raw orders, customers and FX rates are staged and converted to EUR, then aggregated into revenue by country. The starter script below already does three things:</p>
+<ul>
+<li><b>Eager row-level provenance.</b> Every raw row has a provenance id (<code>o1</code>, <code>c1</code>, <code>f1</code> …). Each step carries a <code>prov</code> or <code>how_prov</code> column built like week 3: joins multiply (<code>*</code>), aggregation sums (<code>+</code>).</li>
+<li><b>Runtime lineage.</b> Each step emits OpenLineage START and COMPLETE events with the SQL, the output schema and row counts.</li>
+<li><b>Key preservation.</b> The staging table keeps <code>order_id</code> and <code>customer_id</code>, so reverse queries stay simple (week 2).</li>
+</ul>
+<p>Your job is to extend it, use it, and explain it. Requirements: Python 3.10+, <code>pip install duckdb requests sqlglot</code>, and Marquez from week 6 (the script prints the events instead if Marquez is not running).</p>
+<p>Expected mart output: <code>('FI', 240.00, 'o1*f1*c1 + o3*f1*c3 + o5*f1*c3')</code> and <code>('SE', 78.30, 'o2*f2*c2')</code>.</p>
+<h3>Starter script: pipeline.py</h3>
+<p>The same file is saved in the project folder as <code>course/capstone/pipeline.py</code>.</p>
+<pre class="code">{{CAPSTONE_PY}}</pre>
+<p class="aside">Facet version numbers in the script (for example 1-0-1) are illustrative. Marquez accepts them; a stricter consumer may want the current versions listed on openlineage.io.</p>
+
+<h3>Milestones</h3>
+<ol>
+<li><b>Run it.</b> Start Marquez, run the script, and find both jobs, all datasets and the two runs in the UI.</li>
+<li><b>Provenance by hand and by machine.</b> Answer the practice questions on the FI row.</li>
+<li><b>Column lineage.</b> Add a <code>columnLineage</code> facet to both outputs, by hand first, then generated with SQLGlot (stretch).</li>
+<li><b>Impact analysis.</b> Use the graph to plan a column rename.</li>
+<li><b>Root cause.</b> Break the FX data, predict the effect from the provenance polynomials, then verify.</li>
+<li><b>Write-up.</b> One page: what you captured, eager vs lazy choices, what each kind of lineage answered, and remaining gaps.</li>
+</ol>
+`,
+recall: [
+  { id: "w8r1", q: "Explain, in five sentences, how the four theoretical provenance models relate to what OpenLineage and column-lineage tools capture.", a: "Table-level lineage is coarse lineage between datasets. Column-level identity lineage is where-provenance at schema level; indirect column lineage covers the filter and join inputs that why-provenance includes. Row-level provenance (why/how) is rarely captured by platform tools but can be added eagerly by carrying ids or polynomials. How-provenance is the most general, giving why-provenance and lineage by homomorphisms, while where-provenance must be tracked separately. OpenLineage runs add the activity side (who/when/which version), as in W3C PROV." },
+  { id: "w8r2", q: "When would you choose eager row-level provenance in a real pipeline, and what does it cost?", a: "When sources are ephemeral, when fast drill-down to source rows is needed, or for regulated figures that must be traceable. It costs extra columns and storage, longer runtimes, and code changes in each transformation." },
+  { id: "w8r3", q: "Describe the full journey from a dashboard number back to source rows using everything in the course.", a: "Dashboard → catalog/column lineage to the mart column → the run that produced the current version (OpenLineage run, inputs and their versions) → reverse query on key-preserving models or stored provenance ids → source rows, with why-provenance showing which combinations justify the row and how-provenance how they were combined." },
+  { id: "w8r4", q: "Name the three founding problems from Buneman et al. and where each showed up in weeks 5–8.", a: "Query inversion: reverse queries and row-level provenance in the capstone. Data citation: dataset naming and identity in OpenLineage and catalogs. Archiving: dataset versions, snapshots and reproducibility, AI Act training-data provenance." }
+],
+practice: [
+  { id: "w8p1", title: "Milestone 2: provenance of the FI row", task: "<p>For the output row (FI, 240.00): (a) write its how-provenance; (b) derive its why-provenance and lineage; (c) give the where-provenance of each cell; (d) the polynomial tells you which combinations make the <i>row</i> exist. What extra fact is needed to explain the <i>value</i> 240.00, and which week’s idea does that match?</p>", solution: "<p>(a) o1·f1·c1 + o3·f1·c3 + o5·f1·c3.</p><p>(b) Why: {{o1,f1,c1}, {o3,f1,c3}, {o5,f1,c3}}. Lineage: {o1, o3, o5, f1, c1, c3}.</p><p>(c) country “FI”: copied from (raw_customers, c1, country) and (raw_customers, c3, country). revenue_eur: computed by SUM, so empty where-provenance. how_prov: constructed by the query.</p><p>(d) Any one monomial makes the FI row exist, but the value 240 depends on <i>all</i> of them (120 + 80 + 40, each times rate 1.0). Aggregation needs the whole group: Cui and Widom’s aggregation rule (week 2) and the general point that aggregation breaks the nice properties (week 1). Note also that o4 (refunded) is absent: the filter on status is indirect lineage.</p>" },
+  { id: "w8p2", title: "Milestone 2b: reverse query", task: "<p>Write the reverse queries that trace (SE, 78.30) back to raw rows, using the key-preserving staging table. Then do the same using only the <code>how_prov</code> column. Which approach would still work if raw_orders were truncated after the run?</p>", solution: "<pre class=\"code\">-- via keys\nSELECT s.*, c.* FROM stg_orders_eur s\nJOIN raw_customers c USING (customer_id)\nWHERE c.country = 'SE';\nSELECT * FROM raw_orders WHERE order_id IN (SELECT order_id FROM stg_orders_eur s JOIN raw_customers c USING (customer_id) WHERE c.country = 'SE');\n\n-- via stored provenance\nSELECT how_prov FROM mart_revenue_by_country WHERE country = 'SE';  -- o2*f2*c2</pre><p>Only the stored provenance survives truncation of the sources: that is the eager approach’s advantage from week 4. The key-based reverse query is lazy and needs the sources.</p>" },
+  { id: "w8p3", title: "Milestone 3: column lineage facets", task: "<p>Add a <code>columnLineage</code> facet to <code>stg_orders_eur</code> and <code>mart_revenue_by_country</code> in <code>run_step</code>. Do it by hand first. Stretch goal: generate it with SQLGlot by calling <code>lineage(column, sql, schema)</code> for each output column (pass the DuckDB schemas as the schema dict) and converting the leaf nodes into inputFields.</p>", solution: "<p>By hand, for stg_orders_eur: order_id ← raw_orders.order_id (DIRECT IDENTITY); customer_id ← raw_orders.customer_id (DIRECT IDENTITY); amount_eur ← raw_orders.amount, raw_fx.to_eur (DIRECT TRANSFORMATION); all ← raw_orders.currency, raw_fx.currency (INDIRECT JOIN), raw_orders.status (INDIRECT FILTER).</p><p>For the mart: country ← raw_customers.country (DIRECT IDENTITY, INDIRECT GROUP_BY); revenue_eur ← stg_orders_eur.amount_eur (DIRECT AGGREGATION); all ← stg_orders_eur.customer_id, raw_customers.customer_id (INDIRECT JOIN).</p><p>For the SQLGlot version, strip the <code>CREATE OR REPLACE TABLE … AS</code> prefix before parsing, build the schema dict from <code>DESCRIBE</code>, and map each leaf node (whose <code>source</code> is a table) to <code>{namespace, name, field}</code>. You will find SQLGlot reports the DIRECT edges; INDIRECT ones need extra code that walks JOIN, WHERE and GROUP BY expressions.</p>" },
+  { id: "w8p4", title: "Milestone 4: impact analysis", task: "<p>The source team wants to rename <code>raw_orders.amount</code> to <code>gross_amount</code>. Using your column lineage (in Marquez or from your facets), list every column that breaks, every column that does not, and the change you would make.</p>", solution: "<p>Breaks: stg_orders_eur.amount_eur (direct), and through it mart_revenue_by_country.revenue_eur. Does not break: order_id, customer_id, country, and how_prov/prov (built from pid). Fix: change STEP1 to <code>o.gross_amount * f.to_eur</code> (or alias it back to amount in a source view), deploy together with the source change, and verify the mart values are unchanged.</p>" },
+  { id: "w8p5", title: "Milestone 5: predict, then break", task: "<p>Before running anything, use the polynomials to predict what happens to the mart if (a) the SEK row f2 is deleted from raw_fx, (b) customer c1 is deleted, (c) order o4’s status changes to 'paid'. Then make each change in the script, rerun, and compare. Finally, which OpenLineage information would have alerted you to case (a) in production?</p>", solution: "<p>(a) Set f2 = 0: SE’s polynomial o2·f2·c2 becomes 0, so the SE row disappears (inner join drops SEK orders). FI is unchanged. (b) Set c1 = 0: FI becomes o3·f1·c3 + o5·f1·c3, the row survives, revenue drops to 120.00 (80 + 40). (c) Not predictable from the polynomial: o4 was filtered out, so it has no variable in the output. Filters are indirect lineage, invisible to how-provenance of existing rows. FI would become o1·f1·c1 + o3·f1·c3 + o4·f1·c1 + o5·f1·c3 with revenue 290.00.</p><p>Production alert for (a): the outputStatistics rowCount of mart_revenue_by_country dropping from 2 to 1 (and stg_orders_eur from 4 to 3), ideally checked by a data quality assertion that fails the run.</p>" },
+  { id: "w8p6", title: "Milestone 6: the write-up", task: "<p>Write one page (in your own notes) covering: (1) the pipeline in W3C PROV terms; (2) which lineage you captured eagerly and which lazily, and why; (3) one question each kind of lineage (table, column, row, run) answered in this project; (4) what is still invisible, and how you would close each gap at work.</p>", solution: "<p>A strong write-up includes: entities (raw tables, staging, mart, each at a version), activities (the two runs), agent (you or a service account); eager row provenance (prov columns) and eager runtime events, lazy reverse queries via keys; table lineage → which inputs a step reads, column lineage → rename impact, row lineage → which orders make up FI revenue, run lineage → row-count drop after FX deletion. Gaps: indirect effects like o4’s filter, value-level explanation of aggregates, data that leaves the pipeline (exports), manual steps, and dataset versions (add a version facet or table snapshots).</p>" }
+],
+quiz: [
+  { id: "w8q1", type: "mc", q: "Under Q1 (week 2), which is the why-provenance of (BayTours, 415-1200)?", options: ["{t₁, t₅, t₆}", "{{t₁, t₅}, {t₁, t₆}}", "t₁·(t₅ + t₆) only", "{{t₁}}"], answer: 1, why: "The lineage is {t₁, t₅, t₆}; the polynomial t₁·t₅ + t₁·t₆ is the how-provenance." },
+  { id: "w8q2", type: "mc", q: "Which model can be derived from how-provenance by a homomorphism?", options: ["Where-provenance", "Why-provenance", "Neither", "Only lineage of aggregates"], answer: 1, why: "Lineage, why and minimal why are semiring instances; where-provenance is not." },
+  { id: "w8q3", type: "mc", q: "In the capstone, SE’s provenance is o2·f2·c2. Deleting f2 will:", options: ["Halve SE revenue", "Remove the SE row", "Not change anything", "Change FI"], answer: 1, why: "Setting f2 = 0 makes the polynomial 0." },
+  { id: "w8q4", type: "mc", q: "Why can’t the capstone polynomials predict the effect of changing o4’s status to 'paid'?", options: ["DuckDB bug", "o4 was removed by a filter, so it has no variable in any output polynomial", "Polynomials ignore joins", "Because o4 is EUR"], answer: 1, why: "Provenance describes existing outputs; filters are indirect lineage." },
+  { id: "w8q5", type: "mc", q: "The revenue_eur cell has which where-provenance?", options: ["raw_orders.amount", "raw_fx.to_eur", "Empty, because it is computed", "All raw columns"], answer: 2, why: "Where-provenance only covers copied values." },
+  { id: "w8q6", type: "mc", q: "WHIPS (week 2) and parsing a query log (week 5) are both examples of:", options: ["Eager provenance", "Lazy provenance", "Manual lineage", "Annotation propagation"], answer: 1, why: "Both reconstruct lineage on demand without changing the running system." },
+  { id: "w8q7", type: "mc", q: "Which OpenLineage element identifies the stable process across executions?", options: ["runId", "Job namespace + name", "eventTime", "producer"], answer: 1, why: "Runs change each execution; the job stays the same." },
+  { id: "w8q8", type: "mc", q: "The ECB guide rejects which of these as insufficient?", options: ["Attribute-level lineage", "System-level lineage", "Automated lineage", "Documented manual steps"], answer: 1, why: "It expects attribute-level, end-to-end lineage." },
+  { id: "w8q9", type: "mc", q: "Buneman et al.’s “query inversion” corresponds most closely to which practical feature?", options: ["Dataset URNs", "A “show source rows” drill-down", "Snapshots", "Ownership fields"], answer: 1, why: "Finding the input tuples behind an output tuple." },
+  { id: "w8q10", type: "mc", q: "Which pair is correct?", options: ["Trio: lazy", "DBNotes: eager", "SPIDER: eager", "ORCHESTRA: lazy"], answer: 1, why: "Trio, ORCHESTRA and DBNotes are eager; WHIPS and SPIDER are lazy." },
+  { id: "w8q11", type: "sa", q: "In one paragraph, explain to a new colleague why theoretical provenance research is useful for a data engineer.", a: "It gives precise answers to questions tools blur: what “depends on” means (copied vs used to decide), why rewriting a query can change its lineage, why aggregates and filters are hard, when to record lineage eagerly or reconstruct it lazily, and why per-operator calculations (like Trio’s confidences) go wrong. That vocabulary helps design pipelines that stay traceable and judge what a lineage tool can and cannot tell you." },
+  { id: "w8q12", type: "sa", q: "What would you add to the capstone to make it reproducible for an auditor a year from now?", a: "Record dataset versions (table snapshots or a version facet on each input and output), the code version (sourceCodeLocation facet with commit), parameters and nominal time, keep event history and snapshots under a retention policy, and store the provenance columns or reverse-query keys with the mart." }
+],
+cards: [
+  { id: "w8c1", f: "One-line map: theory → tools", b: "Table lineage = coarse lineage; column identity = where; indirect column = why’s filter/join part; row ids/polynomials = why/how; runs = PROV activities." },
+  { id: "w8c2", f: "Capstone FI how-provenance", b: "o1·f1·c1 + o3·f1·c3 + o5·f1·c3" },
+  { id: "w8c3", f: "Predicting deletions from polynomials", b: "Set the variable to 0: rows whose polynomial becomes 0 disappear; others survive (values of aggregates may still change)." },
+  { id: "w8c4", f: "What polynomials can’t predict", b: "Effects of rows currently filtered out (indirect lineage) and exact aggregate values." },
+  { id: "w8c5", f: "Reproducibility checklist", b: "Dataset versions, code commit, parameters/nominal time, retained events and snapshots, stored provenance or keys." }
+]
+});
